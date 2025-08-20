@@ -1,0 +1,171 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List, Dict
+from fastapi.middleware.cors import CORSMiddleware
+
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
+
+import config
+import json
+from utils.prompts import mentor_config, general_instructions, generateAlgorithmPrompt, generateAnalysis
+from utils.parser import convert_music_blocks
+from utils.blocks import findBlockInfo
+from retriever import getContext
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+embeddings = HuggingFaceEmbeddings(model_name=config.EMBEDDING_MODEL)
+llm = ChatGoogleGenerativeAI(
+    model="models/gemini-2.0-flash",
+    google_api_key=config.GOOGLE_API_KEY,
+    temperature=0.7
+)
+
+reasoning_llm = ChatGoogleGenerativeAI(
+    model="models/gemini-2.5-flash",
+    google_api_key=config.GOOGLE_API_KEY,
+    temperature=0.7
+)
+
+# query schemas
+class QueryRequest(BaseModel):
+    query: str
+    messages: List[Dict[str, str]]
+    mentor: str
+    algorithm: str
+
+class CodeRequest(BaseModel):
+    code: str
+
+class AnalysisRequest(BaseModel):
+    messages: List[Dict[str, str]]
+    summary: str
+
+# response schemas
+class AnalysisSchema(BaseModel):
+    response: str
+    
+class AlgorithmSchema(BaseModel):
+    algorithm: str
+    response: str
+    
+@app.post("/projectcode/")
+async def projectcode(request: CodeRequest):
+    code = request.code
+    data = json.loads(code)
+    flowchart = convert_music_blocks(data)
+    print(flowchart)
+    blockInfo = findBlockInfo(flowchart)
+    structured_llm = reasoning_llm.with_structured_output(AlgorithmSchema)
+    answer = structured_llm.invoke(generateAlgorithmPrompt(flowchart, blockInfo))
+    
+    try:
+        return {
+            "algorithm": answer.algorithm,
+            "response" : answer.response
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    
+    
+@app.post("/chat/")
+async def chat(request: QueryRequest):
+    query = request.query.strip()
+    raw_messages = request.messages
+    mentor = request.mentor.lower()
+    algorithm = request.algorithm
+
+    if not query:
+        return {"error": "Empty query"}
+
+    messages: List[BaseMessage] = convert_messages(raw_messages)
+     
+    # Replace or insert system prompt
+    system_prompt = mentor_config(general_instructions, algorithm, mentor)
+    
+    if messages and isinstance(messages[0], SystemMessage):
+        messages[0] = SystemMessage(content=system_prompt)
+    else:
+        messages.insert(0, SystemMessage(content=system_prompt))
+
+    # Add relevant context from RAG
+    rag_context = getContext(query)
+    if rag_context:
+        messages.insert(1, HumanMessage(content=f"Relevant context:\n{rag_context}"))
+
+    messages.append(HumanMessage(content=query))
+
+    try:
+        result = llm.invoke(messages) #invoking llm with messages, not a single query
+        return {
+            "response": result.content
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.post("/analysis/")
+async def analysis(request: AnalysisRequest):
+    raw_messages = request.messages
+    old_summary = request.summary
+    structured_llm = llm.with_structured_output(AnalysisSchema)
+    
+    if not raw_messages:
+        return {"error": "Empty query"}
+    
+    try:
+        result = structured_llm.invoke(generateAnalysis(old_summary, raw_messages))
+        return {
+            "response": result.response
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def convert_messages(raw_messages: List[Dict[str, str]]) -> List[BaseMessage]:
+    converted = []
+    for msg in raw_messages:
+        role = msg["role"]
+        content = msg["content"]
+        if role == "system":
+            converted.append(SystemMessage(content=content))
+        elif role == "user":
+            converted.append(HumanMessage(content=content))
+        elif role == "meta" or "code" or "music":
+            converted.append(AIMessage(content=content))
+    return converted
+
+
+
+# @app.get("/summary/")
+# def generate_summary(messages):
+#     user_queries = [msg.content for msg in messages if isinstance(msg, HumanMessage)]
+#     assistant_responses = [msg.content for msg in messages if isinstance(msg, AIMessage)]
+#     summary_prompt = f"""
+#     Analyze the following conversation and generate a concise summary for the User's learning and takeaways points. Cover User Queries only.
+#     Add only relevant information in this summary. Write a paragraph under 200 words (detailed).
+#     User Queries:
+#     {user_queries}
+#     Assistant Responses:
+#     {assistant_responses}
+#     Summary:
+#     """
+#     return reasoning_llm.invoke(summary_prompt)
+
+# def stream_response(prompt, model):
+#     full_response = ""  
+#     container = st.empty()        
+#     for chunk in model.stream([HumanMessage(content=prompt)]):
+#         full_response += chunk.content
+#         container.markdown(full_response + "▌")                           
+#     container.markdown(full_response)
+#     return full_response
+
