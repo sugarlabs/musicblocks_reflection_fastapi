@@ -64,7 +64,6 @@ async def projectcode(request: CodeRequest):
     code = request.code
     data = json.loads(code)
     flowchart = convert_music_blocks(data)
-    print(flowchart)
     blockInfo = findBlockInfo(flowchart)
     structured_llm = reasoning_llm.with_structured_output(AlgorithmSchema)
     answer = structured_llm.invoke(generateAlgorithmPrompt(flowchart, blockInfo))
@@ -142,30 +141,3 @@ def convert_messages(raw_messages: List[Dict[str, str]]) -> List[BaseMessage]:
         elif role == "meta" or "code" or "music":
             converted.append(AIMessage(content=content))
     return converted
-
-
-
-# @app.get("/summary/")
-# def generate_summary(messages):
-#     user_queries = [msg.content for msg in messages if isinstance(msg, HumanMessage)]
-#     assistant_responses = [msg.content for msg in messages if isinstance(msg, AIMessage)]
-#     summary_prompt = f"""
-#     Analyze the following conversation and generate a concise summary for the User's learning and takeaways points. Cover User Queries only.
-#     Add only relevant information in this summary. Write a paragraph under 200 words (detailed).
-#     User Queries:
-#     {user_queries}
-#     Assistant Responses:
-#     {assistant_responses}
-#     Summary:
-#     """
-#     return reasoning_llm.invoke(summary_prompt)
-
-# def stream_response(prompt, model):
-#     full_response = ""  
-#     container = st.empty()        
-#     for chunk in model.stream([HumanMessage(content=prompt)]):
-#         full_response += chunk.content
-#         container.markdown(full_response + "▌")                           
-#     container.markdown(full_response)
-#     return full_response
-
