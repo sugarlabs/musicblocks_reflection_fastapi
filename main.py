@@ -9,7 +9,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 import config
 import json
-from utils.prompts import mentor_config, general_instructions, generateAlgorithmPrompt, generateAnalysis
+from utils.prompts import mentor_config, general_instructions, generateAlgorithmPrompt, updateAlgorithmPrompt, generateAnalysis
 from utils.parser import convert_music_blocks
 from utils.blocks import findBlockInfo
 from retriever import getContext
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 embeddings = HuggingFaceEmbeddings(model_name=config.EMBEDDING_MODEL)
+
 llm = ChatGoogleGenerativeAI(
     model="models/gemini-2.0-flash",
     google_api_key=config.GOOGLE_API_KEY,
@@ -37,7 +38,7 @@ reasoning_llm = ChatGoogleGenerativeAI(
     temperature=0.7
 )
 
-# query schemas
+# request schemas
 class QueryRequest(BaseModel):
     query: str
     messages: List[Dict[str, str]]
@@ -51,6 +52,10 @@ class AnalysisRequest(BaseModel):
     messages: List[Dict[str, str]]
     summary: str
 
+class CodeUpdateRequest(BaseModel):
+    oldcode: str
+    newcode: str
+
 # response schemas
 class AnalysisSchema(BaseModel):
     response: str
@@ -59,6 +64,11 @@ class AlgorithmSchema(BaseModel):
     algorithm: str
     response: str
     
+
+@app.get("/")
+async def root():
+    return {"message": "Hello, Music Blocks!"}    
+
 @app.post("/projectcode/")
 async def projectcode(request: CodeRequest):
     code = request.code
@@ -76,7 +86,26 @@ async def projectcode(request: CodeRequest):
     except Exception as e:
         return {"error": str(e)}
     
+@app.post("/updatecode/")
+async def update_projectcode(request: CodeUpdateRequest):
+    oldFlowchart = request.oldcode
+    newCode = request.newcode
+
+    data = json.loads(newCode)
+    newFlowchart = convert_music_blocks(data)
     
+    blockInfo = findBlockInfo(newFlowchart)
+    structured_llm = reasoning_llm.with_structured_output(AlgorithmSchema)
+    answer = structured_llm.invoke(updateAlgorithmPrompt(oldFlowchart, newFlowchart, blockInfo))
+    
+    try:
+        return {
+            "algorithm": answer.algorithm,
+            "response" : answer.response
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/chat/")
 async def chat(request: QueryRequest):
     query = request.query.strip()

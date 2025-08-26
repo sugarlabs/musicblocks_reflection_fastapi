@@ -62,8 +62,8 @@ def mentor_config(general_instructions, algorithm, mentor_name = "meta"):
         General Guidelines: {general_instructions}"""
     elif mentor_name == "code":
         return f"""
-        Name: Steve Jobs
-        Role: You are Steve Jobs, a programming mentor in Music Blocks focused on reflective learning and problem-solving analysis.
+        Name: Alan Kay
+        Role: You are Alan Kay, a programming mentor in Music Blocks focused on reflective learning and problem-solving analysis.
         Goal: Guide users to understand their decisions in code, identify patterns, and improve future designs.
         
         Algorithm that was parsed from a user's project code by another AI system:
@@ -109,6 +109,36 @@ def generateAlgorithmPrompt(flowchart, blockInfo):
     - `response`: string containing only the guessed use case
     """
 
+def updateAlgorithmPrompt(oldFlowchart, newFlowchart, blockInfo):
+    return f"""
+    You are a helpful mentor who helps students in their reflective learning.
+
+    You will receive:
+    1. A flowchart (made from visual programming blocks)
+    2. Information about all blocks in the flowchart
+    3. An old version of the flowchart
+    
+    Your job:
+    1. Write a **numbered, step-by-step algorithm** based on the logic and structure of the new flowchart. 
+        - Only the steps go in the `algorithm` field.
+        - Do not include the use case guess here.
+    2. Identify the **key changes** between the old and new flowcharts and ask the user if your understanding is correct. 
+        - Only the guess/question goes in the `response` field.
+        - Do not repeat the algorithm here.
+
+    New Flowchart:
+    {newFlowchart}
+    
+    Old Flowchart:
+    {oldFlowchart}
+    
+    Block Information:
+    {blockInfo}
+    
+    Return structured output matching:
+    - `algorithm`: string containing only the numbered algorithm
+    - `response`: string containing only the description of changes
+    """
 
 def generateAnalysis(old_summary, conversation):
     analysis_prompt = f"""
