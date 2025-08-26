@@ -88,12 +88,19 @@ async def projectcode(request: CodeRequest):
     
 @app.post("/updatecode/")
 async def update_projectcode(request: CodeUpdateRequest):
-    oldFlowchart = request.oldcode
+    oldCode = request.oldcode
     newCode = request.newcode
 
-    data = json.loads(newCode)
-    newFlowchart = convert_music_blocks(data)
-    
+    newFlowchart = convert_music_blocks(json.loads(newCode))
+    oldFlowchart = convert_music_blocks(json.loads(oldCode))
+
+    if (newFlowchart == oldFlowchart):
+        print("No change detected")
+        return {
+            "algorithm": "unchanged",
+            "response" : "No change detected"
+        }
+
     blockInfo = findBlockInfo(newFlowchart)
     structured_llm = reasoning_llm.with_structured_output(AlgorithmSchema)
     answer = structured_llm.invoke(updateAlgorithmPrompt(oldFlowchart, newFlowchart, blockInfo))

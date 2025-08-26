@@ -123,6 +123,7 @@ def updateAlgorithmPrompt(oldFlowchart, newFlowchart, blockInfo):
         - Only the steps go in the `algorithm` field.
         - Do not include the use case guess here.
     2. Identify the **key changes** between the old and new flowcharts and ask the user if your understanding is correct. 
+       If there are no changes, say it is unchanged.
         - Only the guess/question goes in the `response` field.
         - Do not repeat the algorithm here.
 
