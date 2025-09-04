@@ -381,3 +381,8 @@ For the `/projectcode` and `/analysis` endpoints, gemini-2.5-flash is used, as i
    ```bash
    sudo systemctl status fastapi
    ```
+## License
+Music Blocks Reflection FastAPI is licensed under the [GNU AGPL v3.0](https://www.gnu.org/licenses/agpl-3.0.en.html). 
+It does not collect, store, or share any kind of user data. 
+
+Contributions are welcome. Please open issues or pull requests.
