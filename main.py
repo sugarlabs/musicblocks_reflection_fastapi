@@ -26,16 +26,20 @@ app.add_middleware(
 
 embeddings = HuggingFaceEmbeddings(model_name=config.EMBEDDING_MODEL)
 
+# Chat endpoint: thinking disabled for faster, conversational responses
 llm = ChatGoogleGenerativeAI(
-    model="models/gemini-2.0-flash",
+    model="models/gemini-2.5-flash",
     google_api_key=config.GOOGLE_API_KEY,
-    temperature=0.7
+    temperature=0.7,
+    thinking_budget=0  # Disable thinking for chat
 )
 
+# Algorithm & analysis endpoints: thinking enabled for deeper reasoning
 reasoning_llm = ChatGoogleGenerativeAI(
     model="models/gemini-2.5-flash",
     google_api_key=config.GOOGLE_API_KEY,
-    temperature=0.7
+    temperature=0.7,
+    thinking_budget=-1  # Dynamic thinking (model decides)
 )
 
 # request schemas
