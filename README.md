@@ -177,7 +177,9 @@ Generates a new algorithm for the updated code and provides a response asking th
 
 This module provides retrieval-augmented generation (RAG) capabilities for the FastAPI backend. It initializes a Qdrant vector store using HuggingFace embeddings and connects to a Qdrant instance. It uses similarity search method against the "mb_docs" collection and returns relevant document context for a given query, which is used to enhance LLM responses.
 
-For the `/projectcode` and `/analysis` endpoints, gemini-2.5-flash is used, as its built-in reasoning capability is enabled by default. For the `/chat` endpoint, gemini-2.0-flash is used instead. Since the current LangChain methods do not provide a way to control the reasoning feature of the Gemini-2.5 series, this custom arrangement was chosen.
+For all endpoints, gemini-2.5-flash is used with different `thinking_budget` settings:
+- `/projectcode` and `/analysis`: `thinking_budget=-1` (dynamic thinking enabled for deeper reasoning)
+- `/chat`: `thinking_budget=0` (thinking disabled for faster, more conversational responses)
 
 ## Related Files
 
